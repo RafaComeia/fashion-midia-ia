@@ -1,0 +1,125 @@
+schema: 1
+story: '1.1'
+story_title: 'Setup do Monorepo e Infraestrutura Base'
+gate: CONCERNS
+status_reason: >
+  Implementação funcional completa — todos os scripts Turborepo passam (build, lint, test, typecheck).
+  O packages/shared está correto e importável. Concerns relacionados à centralização do ESLint:
+  packages/config/eslint/index.js existe mas não é importado por nenhum app, e as regras diferem
+  entre apps/web e apps/api. Issues de baixa severidade não bloqueiam progresso.
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-04-12T00:00:00.000Z'
+
+top_issues:
+  - id: eslint-centralization
+    severity: medium
+    category: code
+    description: >
+      packages/config/eslint/index.js define regras centralizadas mas não é referenciado por
+      apps/web nem apps/api. Cada app tem sua própria configuração ESLint independente,
+      quebrando o objetivo de configuração global.
+    recommendation: >
+      Publicar packages/config no workspace com exports adequados e importar no eslint.config.mjs
+      de cada app usando spread (...configFromPackage). Verificar compatibilidade com flat config.
+    suggested_owner: dev
+    refs:
+      - packages/config/eslint/index.js
+      - apps/web/eslint.config.mjs
+      - apps/api/eslint.config.mjs
+
+  - id: eslint-inconsistency
+    severity: medium
+    category: code
+    description: >
+      Regras ESLint inconsistentes entre apps: apps/api tem no-explicit-any desativado e integração
+      Prettier via plugin; apps/web tem no-explicit-any como warn e sem integração Prettier via ESLint.
+      Isso gera enforcement diferente de qualidade entre frontend e backend.
+    recommendation: >
+      Harmonizar regras ao consolidar na config central. Adicionar eslint-plugin-prettier ao apps/web
+      ou remover do apps/api e usar apenas o Prettier CLI — escolher uma estratégia consistente.
+    suggested_owner: dev
+    refs:
+      - apps/web/eslint.config.mjs
+      - apps/api/eslint.config.mjs
+
+  - id: eslint-deprecated-ext
+    severity: low
+    category: code
+    description: >
+      Script lint do apps/web usa flag --ext .ts,.tsx que é ignorada no ESLint 9 com flat config.
+    recommendation: Remover --ext do script lint; usar configuração 'files' no eslint.config.mjs.
+    suggested_owner: dev
+    refs:
+      - apps/web/package.json
+
+  - id: readme-version-mismatch
+    severity: low
+    category: docs
+    description: README.md menciona "Next.js 14 App Router" mas versão instalada é 16.2.3.
+    recommendation: Atualizar stack table no README para refletir versão real.
+    suggested_owner: dev
+    refs:
+      - README.md
+
+  - id: prettier-duplicate-dep
+    severity: low
+    category: code
+    description: >
+      apps/api/package.json tem prettier ^3.4.2 como devDependency duplicando o do root (^3.8.2)
+      com versão menor.
+    recommendation: Remover prettier de apps/api/package.json e usar o da raiz.
+    suggested_owner: dev
+    refs:
+      - apps/api/package.json
+
+waiver:
+  active: false
+
+quality_score: 80
+
+expires: '2026-04-26T00:00:00.000Z'
+
+evidence:
+  tests_reviewed: 1
+  risks_identified: 2
+  trace:
+    ac_covered: [1, 3, 4, 5, 6, 7, 8]
+    ac_gaps: [2]
+    ac_notes:
+      ac_2: >
+        Script lint funcional via Turborepo (AC tecnicamente atendido), mas centralização
+        via packages/config não implementada (intent do AC não cumprido plenamente).
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: Sem secrets hardcoded. .env.example documentado. .env* no .gitignore.
+  performance:
+    status: PASS
+    notes: Turborepo cache configurado corretamente. build/lint com cache, dev/test sem cache.
+  reliability:
+    status: PASS
+    notes: TypeScript strict mode com noUnusedLocals, noUnusedParameters, noImplicitReturns.
+  maintainability:
+    status: CONCERNS
+    notes: >
+      ESLint descentralizado com regras inconsistentes entre apps dificulta manutenção
+      e pode gerar divergência de qualidade ao longo do tempo.
+
+recommendations:
+  immediate: []
+  future:
+    - action: >
+        Conectar packages/config/eslint nos apps e harmonizar regras entre web e api.
+        Garantir que a config central seja a única fonte de verdade.
+      refs:
+        - packages/config/eslint/index.js
+        - apps/web/eslint.config.mjs
+        - apps/api/eslint.config.mjs
+    - action: Corrigir flag --ext deprecada em apps/web e atualizar README versão Next.js.
+      refs:
+        - apps/web/package.json
+        - README.md
+    - action: Remover prettier duplicado de apps/api (usar root).
+      refs:
+        - apps/api/package.json

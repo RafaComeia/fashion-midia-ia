@@ -1,0 +1,14 @@
+{
+  "name": "@fashion-midia/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./eslint": "./eslint/index.js",
+    "./typescript": "./typescript/tsconfig.base.json"
+  },
+  "scripts": {
+    "lint": "echo 'No lint for config'",
+    "typecheck": "echo 'No typecheck for config'"
+  }
+}
