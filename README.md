@@ -1,5 +1,7 @@
 # Fashion Mídia.IA
 
+[![CI](https://github.com/RafaComeia/fashion-midia-ia/actions/workflows/ci.yml/badge.svg)](https://github.com/RafaComeia/fashion-midia-ia/actions/workflows/ci.yml)
+
 Plataforma SaaS de geração de campanhas de moda com IA generativa.
 
 **Executora:** TMS Informática | **Piloto:** Mazzara (Caruaru/PE) | **Edital:** FACEPE 23/2025
