@@ -2,7 +2,6 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 
-const PROTECTED_PATHS = ['/(dashboard)', '/dashboard'];
 const AUTH_PATHS = ['/login', '/cadastro', '/recuperar-senha'];
 
 const isProtectedPath = (pathname: string) =>
@@ -11,7 +10,7 @@ const isProtectedPath = (pathname: string) =>
 const isAuthPath = (pathname: string) =>
   AUTH_PATHS.some((p) => pathname.startsWith(p));
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { supabaseResponse, user } = await updateSession(request);
   const { pathname } = request.nextUrl;
 
