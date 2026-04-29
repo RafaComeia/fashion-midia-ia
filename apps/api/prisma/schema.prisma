@@ -1,0 +1,312 @@
+// Fashion Mídia.IA — Prisma Schema
+// Banco: PostgreSQL via Supabase
+// ORM: Prisma
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum WorkspaceRole {
+  admin
+  editor
+  viewer
+
+  @@map("workspace_role")
+}
+
+enum CampaignStatus {
+  draft
+  generating
+  ready
+  archived
+
+  @@map("campaign_status")
+}
+
+enum AssetType {
+  image
+  video
+
+  @@map("asset_type")
+}
+
+enum JobStatus {
+  pending
+  processing
+  completed
+  failed
+  cancelled
+
+  @@map("job_status")
+}
+
+enum SocialPlatform {
+  instagram
+  whatsapp
+
+  @@map("social_platform")
+}
+
+enum FashionStyle {
+  casual
+  festa
+  fitness
+  infantil
+  executivo
+  praia
+  noivas
+  plus_size
+  custom
+
+  @@map("fashion_style")
+}
+
+enum AspectRatio {
+  ratio_1_1  @map("1:1")
+  ratio_9_16 @map("9:16")
+  ratio_16_9 @map("16:9")
+  ratio_4_5  @map("4:5")
+  ratio_3_4  @map("3:4")
+
+  @@map("aspect_ratio")
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model Workspace {
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  slug      String       @unique
+  logoUrl   String?      @map("logo_url")
+  segment   FashionStyle?
+  plan      String       @default("free")
+  isActive  Boolean      @default(true) @map("is_active")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  members          WorkspaceMember[]
+  collections      Collection[]
+  campaigns        Campaign[]
+  campaignAssets   CampaignAsset[]
+  campaignMetrics  CampaignMetric[]
+  generationJobs   GenerationJob[]
+  customPrompts    CustomPrompt[]
+  socialConnections SocialConnection[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String        @map("workspace_id") @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  role        WorkspaceRole @default(viewer)
+  invitedBy   String?       @map("invited_by") @db.Uuid
+  joinedAt    DateTime?     @map("joined_at") @db.Timestamptz
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId], name: "workspace_members_unique")
+  @@index([workspaceId], name: "idx_workspace_members_workspace_id")
+  @@index([userId], name: "idx_workspace_members_user_id")
+  @@index([userId, workspaceId], name: "idx_workspace_members_lookup")
+  @@map("workspace_members")
+}
+
+model Collection {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  name        String
+  description String?
+  coverUrl    String?   @map("cover_url")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdBy   String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaigns Campaign[]
+
+  @@index([workspaceId], name: "idx_collections_workspace_id")
+  @@map("collections")
+}
+
+model PromptStyle {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String       @unique
+  slug            String       @unique
+  style           FashionStyle
+  description     String
+  basePrompt      String       @map("base_prompt")
+  exampleImageUrl String?      @map("example_image_url")
+  icon            String?
+  isActive        Boolean      @default(true) @map("is_active")
+  sortOrder       Int          @default(0) @map("sort_order")
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  campaigns     Campaign[]
+  customPrompts CustomPrompt[]
+
+  @@map("prompt_styles")
+}
+
+model Campaign {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId    String         @map("workspace_id") @db.Uuid
+  collectionId   String?        @map("collection_id") @db.Uuid
+  name           String
+  description    String?
+  status         CampaignStatus @default(draft)
+  style          FashionStyle?
+  promptStyleId  String?        @map("prompt_style_id") @db.Uuid
+  customPrompt   String?        @map("custom_prompt")
+  aspectRatio    AspectRatio    @default(ratio_1_1) @map("aspect_ratio")
+  productImages  String[]       @default([]) @map("product_images")
+  tags           String[]       @default([])
+  isTemplate     Boolean        @default(false) @map("is_template")
+  duplicatedFrom String?        @map("duplicated_from") @db.Uuid
+  createdBy      String?        @map("created_by") @db.Uuid
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  collection     Collection?     @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  promptStyle    PromptStyle?    @relation(fields: [promptStyleId], references: [id], onDelete: SetNull)
+  assets         CampaignAsset[]
+  metrics        CampaignMetric[]
+  generationJobs GenerationJob[]
+
+  @@index([workspaceId], name: "idx_campaigns_workspace_id")
+  @@index([workspaceId, createdAt(sort: Desc)], name: "idx_campaigns_workspace_created")
+  @@index([workspaceId, status], name: "idx_campaigns_status")
+  @@map("campaigns")
+}
+
+model GenerationJob {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId  String    @map("workspace_id") @db.Uuid
+  campaignId   String?   @map("campaign_id") @db.Uuid
+  type         AssetType
+  status       JobStatus @default(pending)
+  bullJobId    String?   @map("bull_job_id")
+  modelId      String    @map("model_id")
+  prompt       String
+  parameters   Json      @default("{}") @db.Json
+  resultPaths  String[]  @map("result_paths")
+  errorMessage String?   @map("error_message")
+  retryCount   Int       @default(0) @map("retry_count")
+  startedAt    DateTime? @map("started_at") @db.Timestamptz
+  completedAt  DateTime? @map("completed_at") @db.Timestamptz
+  createdBy    String?   @map("created_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaign  Campaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  assets    CampaignAsset[]
+
+  @@map("generation_jobs")
+}
+
+model CampaignAsset {
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaignId      String      @map("campaign_id") @db.Uuid
+  workspaceId     String      @map("workspace_id") @db.Uuid
+  type            AssetType
+  storagePath     String      @map("storage_path")
+  fileName        String      @map("file_name")
+  fileSizeBytes   BigInt?     @map("file_size_bytes")
+  mimeType        String      @map("mime_type")
+  widthPx         Int?        @map("width_px")
+  heightPx        Int?        @map("height_px")
+  durationSec     Int?        @map("duration_sec")
+  aspectRatio     AspectRatio? @map("aspect_ratio")
+  resolution      String?
+  isPrimary       Boolean     @default(false) @map("is_primary")
+  generationJobId String?     @map("generation_job_id") @db.Uuid
+  metadata        Json        @default("{}") @db.Json
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz
+
+  campaign      Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  generationJob GenerationJob? @relation(fields: [generationJobId], references: [id])
+
+  @@index([campaignId], name: "idx_campaign_assets_campaign_id")
+  @@index([workspaceId], name: "idx_campaign_assets_workspace_id")
+  @@map("campaign_assets")
+}
+
+model CampaignMetric {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaignId     String         @map("campaign_id") @db.Uuid
+  workspaceId    String         @map("workspace_id") @db.Uuid
+  platform       SocialPlatform
+  externalPostId String?        @map("external_post_id")
+  metricDate     DateTime       @map("metric_date") @db.Date
+  impressions    BigInt         @default(0)
+  reach          BigInt         @default(0)
+  likes          Int            @default(0)
+  comments       Int            @default(0)
+  shares         Int            @default(0)
+  saves          Int            @default(0)
+  clicks         Int            @default(0)
+  conversions    Int            @default(0)
+  engagementRate Decimal?       @map("engagement_rate") @db.Decimal(5, 2)
+  rawData        Json           @default("{}") @map("raw_data") @db.Json
+  syncedAt       DateTime       @default(now()) @map("synced_at") @db.Timestamptz
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  campaign  Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, platform, metricDate], name: "campaign_metrics_unique")
+  @@map("campaign_metrics")
+}
+
+model CustomPrompt {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String       @map("workspace_id") @db.Uuid
+  userId      String?      @map("user_id") @db.Uuid
+  name        String?
+  promptText  String       @map("prompt_text")
+  styleId     String?      @map("style_id") @db.Uuid
+  useCount    Int          @default(1) @map("use_count")
+  lastUsedAt  DateTime     @default(now()) @map("last_used_at") @db.Timestamptz
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  promptStyle PromptStyle? @relation(fields: [styleId], references: [id])
+
+  @@map("custom_prompts")
+}
+
+model SocialConnection {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId    String         @map("workspace_id") @db.Uuid
+  platform       SocialPlatform
+  accountId      String?        @map("account_id")
+  accountName    String?        @map("account_name")
+  accessToken    String?        @map("access_token")
+  refreshToken   String?        @map("refresh_token")
+  tokenExpiresAt DateTime?      @map("token_expires_at") @db.Timestamptz
+  isActive       Boolean        @default(true) @map("is_active")
+  lastSyncedAt   DateTime?      @map("last_synced_at") @db.Timestamptz
+  connectedBy    String?        @map("connected_by") @db.Uuid
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, platform], name: "social_connections_unique")
+  @@map("social_connections")
+}
